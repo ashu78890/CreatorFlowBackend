@@ -1,8 +1,8 @@
 import express from "express"
 import cors from "cors"
 import dotenv from "dotenv"
-import { connectDB } from "./src/config/db"
-import authRoutes from "./src/routes/authRoutes"
+import authRoutes from "./routes/authRoutes"
+import { connectDB } from "./config/db"
 
 dotenv.config()
 
