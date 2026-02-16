@@ -4,36 +4,62 @@ import User from "../models/User.js"
 import { generateToken } from "../utils/generateToken.js"
 
 export const registerUser = async (req: Request, res: Response) => {
-  const { name, email, password } = req.body
+  try {
+    const { name, email, password, firstName, lastName } = req.body
 
-  const existing = await User.findOne({ email })
-  if (existing) return res.status(400).json({ message: "User exists" })
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: "Email and password required" })
+    }
 
-  const hashed = await bcrypt.hash(password, 10)
+    const existing = await User.findOne({ email })
+    if (existing) return res.status(400).json({ success: false, message: "User exists" })
 
-  const user = await User.create({
-    name,
-    email,
-    password: hashed
-  })
+    const hashed = await bcrypt.hash(password, 10)
 
-  res.json({
-    token: generateToken(user._id.toString()),
-    user
-  })
+    const user = await User.create({
+      name,
+      firstName,
+      lastName,
+      email,
+      password: hashed
+    })
+
+    const safeUser = user.toObject()
+    delete (safeUser as { password?: string }).password
+
+    return res.json({
+      success: true,
+      token: generateToken(user._id.toString()),
+      user: safeUser
+    })
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Registration failed" })
+  }
 }
 
 export const loginUser = async (req: Request, res: Response) => {
-  const { email, password } = req.body
+  try {
+    const { email, password } = req.body
 
-  const user = await User.findOne({ email })
-  if (!user) return res.status(404).json({ message: "User not found" })
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: "Email and password required" })
+    }
 
-  const match = await bcrypt.compare(password, user.password!)
-  if (!match) return res.status(401).json({ message: "Wrong password" })
+    const user = await User.findOne({ email })
+    if (!user) return res.status(404).json({ success: false, message: "User not found" })
 
-  res.json({
-    token: generateToken(user._id.toString()),
-    user
-  })
+    const match = await bcrypt.compare(password, user.password || "")
+    if (!match) return res.status(401).json({ success: false, message: "Wrong password" })
+
+    const safeUser = user.toObject()
+    delete (safeUser as { password?: string }).password
+
+    return res.json({
+      success: true,
+      token: generateToken(user._id.toString()),
+      user: safeUser
+    })
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Login failed" })
+  }
 }

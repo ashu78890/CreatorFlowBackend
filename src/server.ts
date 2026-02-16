@@ -2,15 +2,27 @@ import express from "express"
 import cors from "cors"
 import dotenv from "dotenv"
 import authRoutes from "./routes/authRoutes"
+import dealRoutes from "./routes/dealRoutes"
+import paymentRoutes from "./routes/paymentRoutes"
+import dashboardRoutes from "./routes/dashboardRoutes"
+import analyticsRoutes from "./routes/analyticsRoutes"
+import calendarRoutes from "./routes/calendarRoutes"
+import settingsRoutes from "./routes/settingsRoutes"
 import { connectDB } from "./config/db"
 
 dotenv.config()
 
 const app = express()
 connectDB()
-app.use(cors())
+app.use(cors()) 
 app.use(express.json())
 app.use("/api/auth", authRoutes)
+app.use("/api/deals", dealRoutes)
+app.use("/api/payments", paymentRoutes)
+app.use("/api/dashboard", dashboardRoutes)
+app.use("/api/analytics", analyticsRoutes)
+app.use("/api/calendar", calendarRoutes)
+app.use("/api/settings", settingsRoutes)
 app.get("/", (req, res) => {
   res.send("CreatorFlow Backend Running")
 })

@@ -1,0 +1,122 @@
+import { Request, Response } from "express"
+import Payment from "../models/Payment.js"
+import Deal from "../models/Deal.js"
+
+const recalcDealPayments = async (dealId: string, userId: string) => {
+  const deal = await Deal.findOne({ _id: dealId, user: userId })
+  if (!deal) return
+
+  const payments = await Payment.find({ deal: dealId, user: userId })
+  const totalReceived = payments.reduce((sum, p) => sum + (p.received || 0), 0)
+  const totalExpected = deal.amount || payments.reduce((sum, p) => sum + (p.amount || 0), 0)
+
+  let paymentStatus: "pending" | "partially_paid" | "paid" = "pending"
+  if (totalReceived >= totalExpected && totalExpected > 0) paymentStatus = "paid"
+  else if (totalReceived > 0) paymentStatus = "partially_paid"
+
+  deal.amountReceived = totalReceived
+  deal.paymentStatus = paymentStatus
+  await deal.save()
+}
+
+export const createPayment = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?._id
+    if (!userId) return res.status(401).json({ success: false, message: "Not authorized" })
+
+    const { dealId, amount, received, status, dueDate, paidAt, notes } = req.body
+    const deal = await Deal.findOne({ _id: dealId, user: userId })
+    if (!deal) return res.status(404).json({ success: false, message: "Deal not found" })
+
+    const payment = await Payment.create({
+      user: userId,
+      deal: dealId,
+      amount,
+      received,
+      status,
+      dueDate,
+      paidAt,
+      notes
+    })
+
+    await recalcDealPayments(dealId, userId.toString())
+
+    return res.status(201).json({ success: true, data: payment })
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to create payment" })
+  }
+}
+
+export const getPayments = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?._id
+    if (!userId) return res.status(401).json({ success: false, message: "Not authorized" })
+
+    const { dealId, status } = req.query
+    const query: Record<string, unknown> = { user: userId }
+    if (dealId) query.deal = dealId
+    if (status && status !== "all") query.status = status
+
+    const payments = await Payment.find(query)
+      .populate("deal", "brandName dealName")
+      .sort({ createdAt: -1 })
+
+    return res.json({ success: true, data: payments })
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to fetch payments" })
+  }
+}
+
+export const getPaymentById = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?._id
+    if (!userId) return res.status(401).json({ success: false, message: "Not authorized" })
+
+    const payment = await Payment.findOne({ _id: req.params.id, user: userId }).populate(
+      "deal",
+      "brandName dealName"
+    )
+    if (!payment) return res.status(404).json({ success: false, message: "Payment not found" })
+
+    return res.json({ success: true, data: payment })
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to fetch payment" })
+  }
+}
+
+export const updatePayment = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?._id
+    if (!userId) return res.status(401).json({ success: false, message: "Not authorized" })
+
+    const payment = await Payment.findOneAndUpdate(
+      { _id: req.params.id, user: userId },
+      { $set: req.body },
+      { new: true }
+    )
+
+    if (!payment) return res.status(404).json({ success: false, message: "Payment not found" })
+
+    await recalcDealPayments(payment.deal.toString(), userId.toString())
+
+    return res.json({ success: true, data: payment })
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to update payment" })
+  }
+}
+
+export const deletePayment = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?._id
+    if (!userId) return res.status(401).json({ success: false, message: "Not authorized" })
+
+    const payment = await Payment.findOneAndDelete({ _id: req.params.id, user: userId })
+    if (!payment) return res.status(404).json({ success: false, message: "Payment not found" })
+
+    await recalcDealPayments(payment.deal.toString(), userId.toString())
+
+    return res.json({ success: true, message: "Payment deleted" })
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to delete payment" })
+  }
+}
