@@ -1,6 +1,6 @@
 import express from "express"
-import { getCalendarEvents } from "../controllers/calendarController.js"
-import { protect } from "../middleware/authMiddleware.js"
+import { getCalendarEvents } from "../controllers/calendarController"
+import { protect } from "../middleware/authMiddleware"
 
 const router = express.Router()
 

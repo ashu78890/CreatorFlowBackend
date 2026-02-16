@@ -5,8 +5,8 @@ import {
   getPaymentById,
   updatePayment,
   deletePayment
-} from "../controllers/paymentController.js"
-import { protect } from "../middleware/authMiddleware.js"
+} from "../controllers/paymentController"
+import { protect } from "../middleware/authMiddleware"
 
 const router = express.Router()
 

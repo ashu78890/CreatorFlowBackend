@@ -5,8 +5,8 @@ import {
   getDealById,
   updateDeal,
   deleteDeal
-} from "../controllers/dealController.js"
-import { protect } from "../middleware/authMiddleware.js"
+} from "../controllers/dealController"
+import { protect } from "../middleware/authMiddleware"
 
 const router = express.Router()
 

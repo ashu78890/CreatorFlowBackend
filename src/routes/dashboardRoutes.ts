@@ -1,6 +1,6 @@
 import express from "express"
-import { getDashboardOverview } from "../controllers/dashboardController.js"
-import { protect } from "../middleware/authMiddleware.js"
+import { getDashboardOverview } from "../controllers/dashboardController"
+import { protect } from "../middleware/authMiddleware"
 
 const router = express.Router()
 

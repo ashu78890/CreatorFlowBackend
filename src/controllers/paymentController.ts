@@ -1,6 +1,6 @@
 import { Request, Response } from "express"
-import Payment from "../models/Payment.js"
-import Deal from "../models/Deal.js"
+import Payment from "../models/Payment"
+import Deal from "../models/Deal"
 
 const recalcDealPayments = async (dealId: string, userId: string) => {
   const deal = await Deal.findOne({ _id: dealId, user: userId })

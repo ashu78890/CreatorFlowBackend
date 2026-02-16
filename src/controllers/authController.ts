@@ -1,7 +1,7 @@
 import { Request, Response } from "express"
 import bcrypt from "bcrypt"
-import User from "../models/User.js"
-import { generateToken } from "../utils/generateToken.js"
+import User from "../models/User"
+import { generateToken } from "../utils/generateToken"
 
 export const registerUser = async (req: Request, res: Response) => {
   try {
@@ -33,6 +33,7 @@ export const registerUser = async (req: Request, res: Response) => {
       user: safeUser
     })
   } catch (error) {
+     console.error("REGISTER ERROR:", error)
     return res.status(500).json({ success: false, message: "Registration failed" })
   }
 }

@@ -1,6 +1,6 @@
 import { Request, Response } from "express"
-import Deal from "../models/Deal.js"
-import Payment from "../models/Payment.js"
+import Deal from "../models/Deal"
+import Payment from "../models/Payment"
 
 const withDaysLeft = (date?: Date | string | null) => {
   if (!date) return null

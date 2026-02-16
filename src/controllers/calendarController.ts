@@ -1,5 +1,5 @@
 import { Request, Response } from "express"
-import Deal from "../models/Deal.js"
+import Deal from "../models/Deal"
 
 export const getCalendarEvents = async (req: Request, res: Response) => {
   try {
