@@ -2,6 +2,7 @@ import { Request, Response } from "express"
 import bcrypt from "bcrypt"
 import User from "../models/User"
 import { generateToken } from "../utils/generateToken"
+import mongoose from "mongoose"
 
 export const registerUser = async (req: Request, res: Response) => {
   try {
@@ -26,10 +27,10 @@ export const registerUser = async (req: Request, res: Response) => {
 
     const safeUser = user.toObject()
     delete (safeUser as { password?: string }).password
-
+    const userId = user._id as mongoose.Types.ObjectId
     return res.json({
       success: true,
-      token: generateToken(user._id.toString()),
+      token: generateToken(userId.toString()),
       user: safeUser
     })
   } catch (error) {
