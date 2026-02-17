@@ -14,6 +14,16 @@ export const createDeal = async (req: Request, res: Response) => {
     const userId = req.user?._id
     if (!userId) return res.status(401).json({ success: false, message: "Not authorized" })
 
+    if (req.user?.pricingPlan !== "pro") {
+      const dealCount = await Deal.countDocuments({ user: userId })
+      if (dealCount >= 3) {
+        return res.status(403).json({
+          success: false,
+          message: "Free plan limit reached. Upgrade to Pro for unlimited deals."
+        })
+      }
+    }
+
     const deal = await Deal.create({
       ...req.body,
       user: userId

@@ -8,6 +8,8 @@ import dashboardRoutes from "./routes/dashboardRoutes"
 import analyticsRoutes from "./routes/analyticsRoutes"
 import calendarRoutes from "./routes/calendarRoutes"
 import settingsRoutes from "./routes/settingsRoutes"
+import billingRoutes from "./routes/billingRoutes"
+import { stripeWebhook } from "./controllers/billingController"
 import { connectDB } from "./config/db"
 
 dotenv.config()
@@ -15,6 +17,7 @@ dotenv.config()
 const app = express()
 connectDB()
 app.use(cors()) 
+app.post("/api/billing/webhook", express.raw({ type: "application/json" }), stripeWebhook)
 app.use(express.json())
 app.use("/api/auth", authRoutes)
 app.use("/api/deals", dealRoutes)
@@ -23,6 +26,7 @@ app.use("/api/dashboard", dashboardRoutes)
 app.use("/api/analytics", analyticsRoutes)
 app.use("/api/calendar", calendarRoutes)
 app.use("/api/settings", settingsRoutes)
+app.use("/api/billing", billingRoutes)
 app.get("/", (req, res) => {
   res.send("CreatorFlow Backend Running")
 })

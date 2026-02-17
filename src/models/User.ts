@@ -12,7 +12,10 @@ export interface IUser extends mongoose.Document {
   dealTypes?: string[]
   monthlyVolume?: string
   currency?: string
-  pricingPlan?: string
+  pricingPlan?: "free" | "pro"
+  stripeCustomerId?: string
+  stripeSubscriptionId?: string
+  subscriptionStatus?: string
   notifications?: {
     deadlineReminders: boolean
     paymentAlerts: boolean
@@ -53,6 +56,19 @@ const userSchema = new mongoose.Schema(
     pricingPlan: {
       type: String,
       default: "free"
+    },
+
+    stripeCustomerId: {
+      type: String
+    },
+
+    stripeSubscriptionId: {
+      type: String
+    },
+
+    subscriptionStatus: {
+      type: String,
+      default: "inactive"
     },
 
     notifications: {
