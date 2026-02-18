@@ -10,6 +10,93 @@ const withDaysLeft = (date?: Date | string | null) => {
   return Math.ceil(diff / (1000 * 60 * 60 * 24))
 }
 
+const dayDiff = (date: Date) => {
+  const target = new Date(date)
+  target.setHours(0, 0, 0, 0)
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+export const getDealReminders = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?._id
+    if (!userId) return res.status(401).json({ success: false, message: "Not authorized" })
+
+    const deal = await Deal.findOne({ _id: req.params.id, user: userId })
+    if (!deal) return res.status(404).json({ success: false, message: "Deal not found" })
+
+    const reminderDays = req.user?.reminders?.daysBefore ?? 2
+    const reminders: Array<{
+      id: string
+      type: "deliverable" | "payment"
+      message: string
+      dueDate: string
+      status: "upcoming" | "overdue"
+      daysLeft: number
+    }> = []
+
+    for (const deliverable of deal.deliverables || []) {
+      if (!deliverable.dueDate || deliverable.status !== "pending") continue
+      const diff = dayDiff(deliverable.dueDate)
+      if (diff > reminderDays) continue
+
+      const status = diff < 0 ? "overdue" : "upcoming"
+      const daysLeft = diff
+      const message = diff < 0
+        ? `${deliverable.type} overdue by ${Math.abs(diff)} days`
+        : diff === 0
+          ? `${deliverable.type} due today`
+          : `${deliverable.type} due in ${diff} days`
+
+      reminders.push({
+        id: `deliverable-${deal._id}-${deliverable.type}-${deliverable.dueDate.toISOString()}`,
+        type: "deliverable",
+        message,
+        dueDate: deliverable.dueDate.toISOString(),
+        status,
+        daysLeft
+      })
+    }
+
+    const payments = await Payment.find({
+      deal: deal._id,
+      user: userId,
+      status: { $in: ["pending", "partially_paid"] }
+    })
+
+    for (const payment of payments) {
+      if (!payment.dueDate) continue
+      const diff = dayDiff(payment.dueDate)
+      if (diff > reminderDays) continue
+
+      const remaining = Math.max((payment.amount || 0) - (payment.received || 0), 0)
+      const status = diff < 0 ? "overdue" : "upcoming"
+      const daysLeft = diff
+      const message = diff < 0
+        ? `Payment overdue by ${Math.abs(diff)} days${remaining ? ` ($${remaining.toLocaleString()} remaining)` : ""}`
+        : diff === 0
+          ? `Payment due today${remaining ? ` ($${remaining.toLocaleString()} remaining)` : ""}`
+          : `Payment due in ${diff} days${remaining ? ` ($${remaining.toLocaleString()} remaining)` : ""}`
+
+      reminders.push({
+        id: `payment-${payment._id}`,
+        type: "payment",
+        message,
+        dueDate: payment.dueDate.toISOString(),
+        status,
+        daysLeft
+      })
+    }
+
+    reminders.sort((a, b) => a.daysLeft - b.daysLeft)
+
+    return res.json({ success: true, data: reminders })
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to load reminders" })
+  }
+}
+
 export const createDeal = async (req: Request, res: Response) => {
   try {
     const userId = req.user?._id
