@@ -78,6 +78,73 @@ export const getPayments = async (req: Request, res: Response) => {
   }
 }
 
+const csvEscape = (value: unknown) => {
+  if (value === null || value === undefined) return ""
+  const str = String(value)
+  if (str.includes(",") || str.includes("\n") || str.includes("\"")) {
+    return `"${str.replace(/"/g, '""')}"`
+  }
+  return str
+}
+
+export const exportPayments = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?._id
+    if (!userId) return res.status(401).json({ success: false, message: "Not authorized" })
+
+    const { dealId, status } = req.query
+    const query: Record<string, unknown> = { user: userId }
+    if (dealId) query.deal = dealId
+    if (status && status !== "all") query.status = status
+
+    const payments = await Payment.find(query)
+      .populate("deal", "brandName dealName")
+      .sort({ createdAt: -1 })
+
+    const rows = payments.map((payment) => {
+      const deal = payment.deal as { brandName?: string; dealName?: string } | string
+      const brandName = typeof deal === "string" ? "" : deal?.brandName || ""
+      const dealName = typeof deal === "string" ? "" : deal?.dealName || ""
+      const dueDate = payment.dueDate ? payment.dueDate.toISOString().slice(0, 10) : ""
+      const paidAt = payment.paidAt ? payment.paidAt.toISOString().slice(0, 10) : ""
+      const createdAt = payment.createdAt ? payment.createdAt.toISOString().slice(0, 10) : ""
+
+      return [
+        brandName,
+        dealName,
+        payment.amount,
+        payment.received,
+        payment.status,
+        dueDate,
+        paidAt,
+        createdAt
+      ]
+    })
+
+    const header = [
+      "Brand",
+      "Deal",
+      "Amount",
+      "Received",
+      "Status",
+      "Due Date",
+      "Paid At",
+      "Created At"
+    ]
+
+    const csv = [header, ...rows]
+      .map((row) => row.map(csvEscape).join(","))
+      .join("\n")
+
+    const today = new Date().toISOString().slice(0, 10)
+    res.setHeader("Content-Type", "text/csv; charset=utf-8")
+    res.setHeader("Content-Disposition", `attachment; filename=payments-report-${today}.csv`)
+    return res.status(200).send(csv)
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to export payments" })
+  }
+}
+
 export const getPaymentById = async (req: Request, res: Response) => {
   try {
     const userId = req.user?._id
