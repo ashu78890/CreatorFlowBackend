@@ -1,6 +1,7 @@
 import { Request, Response } from "express"
 import Payment from "../models/Payment"
 import Deal from "../models/Deal"
+import { createNotification } from "../utils/notifications"
 
 const recalcDealPayments = async (dealId: string, userId: string) => {
   const deal = await Deal.findOne({ _id: dealId, user: userId })
@@ -38,6 +39,16 @@ export const createPayment = async (req: Request, res: Response) => {
       paidAt,
       notes
     })
+
+    if (received && received > 0) {
+      await createNotification({
+        userId: userId.toString(),
+        type: "payment_received",
+        title: "Payment received",
+        message: `${deal.brandName} sent $${Number(received).toLocaleString()}`,
+        metadata: { dealId: deal._id.toString(), paymentId: payment._id.toString() }
+      })
+    }
 
     await recalcDealPayments(dealId, userId.toString())
 
@@ -89,6 +100,13 @@ export const updatePayment = async (req: Request, res: Response) => {
     const userId = req.user?._id
     if (!userId) return res.status(401).json({ success: false, message: "Not authorized" })
 
+    const existing = await Payment.findOne({ _id: req.params.id, user: userId })
+    if (!existing) return res.status(404).json({ success: false, message: "Payment not found" })
+
+    const previousReceived = existing.received || 0
+    const nextReceived = typeof req.body.received === "number" ? req.body.received : previousReceived
+    const previousStatus = existing.status
+
     const payment = await Payment.findOneAndUpdate(
       { _id: req.params.id, user: userId },
       { $set: req.body },
@@ -96,6 +114,24 @@ export const updatePayment = async (req: Request, res: Response) => {
     )
 
     if (!payment) return res.status(404).json({ success: false, message: "Payment not found" })
+
+    {
+      const receivedIncrease = nextReceived - previousReceived
+      const statusUpgraded = previousStatus !== "paid" && payment.status === "paid"
+
+      if (receivedIncrease > 0 || statusUpgraded) {
+        const deal = await Deal.findOne({ _id: payment.deal, user: userId })
+        if (deal) {
+          await createNotification({
+            userId: userId.toString(),
+            type: "payment_received",
+            title: "Payment received",
+            message: `${deal.brandName} sent $${Number(nextReceived).toLocaleString()}`,
+            metadata: { dealId: deal._id.toString(), paymentId: payment._id.toString() }
+          })
+        }
+      }
+    }
 
     await recalcDealPayments(payment.deal.toString(), userId.toString())
 

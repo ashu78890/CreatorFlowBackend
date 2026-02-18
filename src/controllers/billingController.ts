@@ -1,6 +1,8 @@
 import { Request, Response } from "express"
 import { stripe } from "../config/stripe"
 import User from "../models/User"
+import { createNotification } from "../utils/notifications"
+import { sendBillingEmail } from "../utils/email"
 
 const successUrl = process.env.STRIPE_SUCCESS_URL || ""
 const cancelUrl = process.env.STRIPE_CANCEL_URL || ""
@@ -91,14 +93,38 @@ export const getBillingStatus = async (req: Request, res: Response) => {
 
 const updateSubscription = async (customerId: string, subscriptionId: string | null, status: string) => {
   const pricingPlan = status === "active" || status === "trialing" ? "pro" : "free"
-  await User.findOneAndUpdate(
+  return User.findOneAndUpdate(
     { stripeCustomerId: customerId },
     {
       stripeSubscriptionId: subscriptionId || undefined,
       subscriptionStatus: status,
       pricingPlan
-    }
+    },
+    { new: true }
   )
+}
+
+const notifyBillingEvent = async (params: {
+  userId: string
+  email?: string
+  title: string
+  message: string
+}) => {
+  await createNotification({
+    userId: params.userId,
+    type: "billing_event",
+    title: params.title,
+    message: params.message
+  })
+
+  if (params.email) {
+    await sendBillingEmail({
+      to: params.email,
+      subject: params.title,
+      title: params.title,
+      message: params.message
+    })
+  }
 }
 
 export const stripeWebhook = async (req: Request, res: Response) => {
@@ -121,7 +147,15 @@ export const stripeWebhook = async (req: Request, res: Response) => {
       case "checkout.session.completed": {
         const session = event.data.object as { customer: string; subscription: string }
         if (session.customer) {
-          await updateSubscription(session.customer, session.subscription || null, "active")
+          const user = await updateSubscription(session.customer, session.subscription || null, "active")
+          if (user) {
+            await notifyBillingEvent({
+              userId: user._id.toString(),
+              email: user.email,
+              title: "Payment successful",
+              message: "Your CreatorFlow Pro subscription is now active."
+            })
+          }
         }
         break
       }
@@ -133,13 +167,29 @@ export const stripeWebhook = async (req: Request, res: Response) => {
       }
       case "customer.subscription.deleted": {
         const subscription = event.data.object as { id: string; customer: string; status: string }
-        await updateSubscription(subscription.customer, subscription.id, "canceled")
+        const user = await updateSubscription(subscription.customer, subscription.id, "canceled")
+        if (user) {
+          await notifyBillingEvent({
+            userId: user._id.toString(),
+            email: user.email,
+            title: "Subscription canceled",
+            message: "Your subscription has been canceled. You will remain on Free after the current period."
+          })
+        }
         break
       }
       case "invoice.payment_failed": {
         const invoice = event.data.object as { customer: string; subscription: string }
         if (invoice.customer) {
-          await updateSubscription(invoice.customer, invoice.subscription || null, "past_due")
+          const user = await updateSubscription(invoice.customer, invoice.subscription || null, "past_due")
+          if (user) {
+            await notifyBillingEvent({
+              userId: user._id.toString(),
+              email: user.email,
+              title: "Payment failed",
+              message: "We could not process your latest payment. Please update your billing details."
+            })
+          }
         }
         break
       }

@@ -9,8 +9,10 @@ import analyticsRoutes from "./routes/analyticsRoutes"
 import calendarRoutes from "./routes/calendarRoutes"
 import settingsRoutes from "./routes/settingsRoutes"
 import billingRoutes from "./routes/billingRoutes"
+import notificationRoutes from "./routes/notificationRoutes"
 import { stripeWebhook } from "./controllers/billingController"
 import { connectDB } from "./config/db"
+import { cleanupOldNotifications } from "./utils/notifications"
 
 dotenv.config()
 
@@ -28,6 +30,7 @@ app.use("/api/analytics", analyticsRoutes)
 app.use("/api/calendar", calendarRoutes)
 app.use("/api/settings", settingsRoutes)
 app.use("/api/billing", billingRoutes)
+app.use("/api/notifications", notificationRoutes)
 app.get("/", (req, res) => {
   res.send("CreatorFlow Backend Running")
 })
@@ -37,3 +40,7 @@ const PORT = process.env.PORT || 5000
 app.listen(PORT, () => {
   console.log(`Server running on ${PORT}`)
 })
+
+setInterval(() => {
+  cleanupOldNotifications().catch(() => undefined)
+}, 24 * 60 * 60 * 1000)

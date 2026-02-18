@@ -1,6 +1,7 @@
 import { Request, Response } from "express"
 import Deal from "../models/Deal"
 import Payment from "../models/Payment"
+import { createNotification } from "../utils/notifications"
 
 const withDaysLeft = (date?: Date | string | null) => {
   if (!date) return null
@@ -27,6 +28,14 @@ export const createDeal = async (req: Request, res: Response) => {
     const deal = await Deal.create({
       ...req.body,
       user: userId
+    })
+
+    await createNotification({
+      userId: userId.toString(),
+      type: "deal_created",
+      title: "New deal added",
+      message: `${deal.brandName} - ${deal.dealName}`,
+      metadata: { dealId: deal._id.toString() }
     })
 
     return res.status(201).json({ success: true, data: deal })
