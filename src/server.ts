@@ -10,6 +10,7 @@ import calendarRoutes from "./routes/calendarRoutes"
 import settingsRoutes from "./routes/settingsRoutes"
 import billingRoutes from "./routes/billingRoutes"
 import notificationRoutes from "./routes/notificationRoutes"
+import searchRoutes from "./routes/searchRoutes"
 import { stripeWebhook } from "./controllers/billingController"
 import { connectDB } from "./config/db"
 import { cleanupOldNotifications } from "./utils/notifications"
@@ -31,6 +32,7 @@ app.use("/api/calendar", calendarRoutes)
 app.use("/api/settings", settingsRoutes)
 app.use("/api/billing", billingRoutes)
 app.use("/api/notifications", notificationRoutes)
+app.use("/api/search", searchRoutes)
 app.get("/", (req, res) => {
   res.send("CreatorFlow Backend Running")
 })
