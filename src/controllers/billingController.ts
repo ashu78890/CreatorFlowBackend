@@ -110,6 +110,13 @@ const notifyBillingEvent = async (params: {
   title: string
   message: string
 }) => {
+  const user = await User.findById(params.userId).select("notifications")
+  const allowBillingAlerts = user?.notifications?.paymentAlerts !== false
+
+  if (!allowBillingAlerts) {
+    return
+  }
+
   await createNotification({
     userId: params.userId,
     type: "billing_event",

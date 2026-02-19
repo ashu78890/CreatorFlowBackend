@@ -1,4 +1,5 @@
 import Notification, { type NotificationType } from "../models/Notification"
+import User from "../models/User"
 import { emitNotification } from "./notificationStream"
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
@@ -17,6 +18,19 @@ export const createNotification = async (params: {
   metadata?: Record<string, unknown>
 }) => {
   const { userId, dedupeKey } = params
+  const user = await User.findById(userId).select("notifications")
+  if (!user) return null
+
+  const prefKey =
+    params.type === "deadline_reminder"
+      ? "deadlineReminders"
+      : params.type === "payment_received" || params.type === "billing_event"
+        ? "paymentAlerts"
+        : null
+
+  if (prefKey && user.notifications && user.notifications[prefKey] === false) {
+    return null
+  }
   if (dedupeKey) {
     const existing = await Notification.findOne({ user: userId, dedupeKey })
     if (existing) return existing
