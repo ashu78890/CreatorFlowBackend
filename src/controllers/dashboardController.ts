@@ -39,6 +39,25 @@ const ensureDeadlineNotifications = async (userId: string, reminderDays: number)
   }
 }
 
+const monthBounds = (offset: number) => {
+  const now = new Date()
+  const start = new Date(now.getFullYear(), now.getMonth() + offset, 1)
+  const end = new Date(now.getFullYear(), now.getMonth() + offset + 1, 1)
+  return { start, end }
+}
+
+const buildTrend = (current: number, previous: number) => {
+  if (previous === 0) {
+    if (current === 0) {
+      return { value: "0", positive: true }
+    }
+    return { value: "New", positive: true }
+  }
+  const diff = ((current - previous) / Math.abs(previous)) * 100
+  const rounded = Math.round(diff)
+  return { value: String(rounded), positive: rounded >= 0 }
+}
+
 export const getDashboardOverview = async (req: Request, res: Response) => {
   try {
     const userId = req.user?._id
@@ -52,6 +71,30 @@ export const getDashboardOverview = async (req: Request, res: Response) => {
         { $group: { _id: null, total: { $sum: "$received" } } }
       ]),
       Deal.find({ user: userId }).sort({ createdAt: -1 }).limit(5)
+    ])
+
+    const { start: currentStart, end: currentEnd } = monthBounds(0)
+    const { start: prevStart, end: prevEnd } = monthBounds(-1)
+
+    const [currentActive, prevActive, currentEarnings, prevEarnings] = await Promise.all([
+      Deal.countDocuments({
+        user: userId,
+        status: "active",
+        createdAt: { $gte: currentStart, $lt: currentEnd }
+      }),
+      Deal.countDocuments({
+        user: userId,
+        status: "active",
+        createdAt: { $gte: prevStart, $lt: prevEnd }
+      }),
+      Payment.aggregate([
+        { $match: { user: userId, createdAt: { $gte: currentStart, $lt: currentEnd } } },
+        { $group: { _id: null, total: { $sum: "$received" } } }
+      ]),
+      Payment.aggregate([
+        { $match: { user: userId, createdAt: { $gte: prevStart, $lt: prevEnd } } },
+        { $group: { _id: null, total: { $sum: "$received" } } }
+      ])
     ])
 
     const reminderDays = req.user?.reminders?.daysBefore ?? 2
@@ -84,7 +127,11 @@ export const getDashboardOverview = async (req: Request, res: Response) => {
           activeDeals,
           upcomingDeadlines: upcomingDeadlines.length,
           pendingPayments,
-          totalEarnings: earningsTotal
+          totalEarnings: earningsTotal,
+          trends: {
+            activeDeals: buildTrend(currentActive, prevActive),
+            totalEarnings: buildTrend(currentEarnings[0]?.total || 0, prevEarnings[0]?.total || 0)
+          }
         },
         upcomingDeadlines,
         recentDeals
