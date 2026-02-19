@@ -9,6 +9,7 @@ export interface IUser extends mongoose.Document {
   avatar?: string
   phone?: string
   platforms?: string[]
+  customPlatforms?: string[]
   dealTypes?: string[]
   monthlyVolume?: string
   currency?: string
@@ -45,6 +46,10 @@ const userSchema = new mongoose.Schema(
     phone: String,
 
     platforms: [String],
+    customPlatforms: {
+      type: [String],
+      default: []
+    },
     dealTypes: [String],
     monthlyVolume: String,
 

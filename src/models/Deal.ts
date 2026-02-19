@@ -21,7 +21,6 @@ const dealSchema = new mongoose.Schema(
     brandHandle: { type: String },
     platform: {
       type: String,
-      enum: ["instagram", "youtube", "tiktok", "other"],
       default: "instagram"
     },
     dealName: { type: String, required: true },

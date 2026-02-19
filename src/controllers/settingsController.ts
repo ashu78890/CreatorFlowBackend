@@ -35,6 +35,7 @@ export const updateSettings = async (req: Request, res: Response) => {
       "notifications",
       "reminders",
       "platforms",
+      "customPlatforms",
       "dealTypes",
       "monthlyVolume"
     ]
