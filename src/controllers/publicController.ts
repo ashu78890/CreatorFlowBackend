@@ -13,6 +13,7 @@ export const getPublicStats = async (_req: Request, res: Response) => {
       ]),
       User.countDocuments(),
       Rating.aggregate([
+        { $match: { user: { $ne: null } } },
         { $group: { _id: null, avg: { $avg: "$value" }, count: { $sum: 1 } } }
       ])
     ])
@@ -64,17 +65,18 @@ export const getPublicStats = async (_req: Request, res: Response) => {
   }
 }
 
-export const createRating = async (req: Request, res: Response) => {
+export const getPublicTestimonials = async (_req: Request, res: Response) => {
   try {
-    const value = Number(req.body?.value)
-    if (!Number.isFinite(value) || value < 1 || value > 5) {
-      return res.status(400).json({ success: false, message: "Rating must be between 1 and 5" })
-    }
+    const testimonials = await Rating.find({
+      user: { $ne: null },
+      comment: { $nin: [null, ""] }
+    })
+      .sort({ createdAt: -1 })
+      .limit(8)
+      .select("_id comment displayName role value createdAt")
 
-    const rating = await Rating.create({ value })
-
-    return res.status(201).json({ success: true, data: { id: rating._id, value: rating.value } })
+    return res.json({ success: true, data: testimonials })
   } catch (error) {
-    return res.status(500).json({ success: false, message: "Failed to submit rating" })
+    return res.status(500).json({ success: false, message: "Failed to load testimonials" })
   }
 }

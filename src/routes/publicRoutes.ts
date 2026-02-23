@@ -1,9 +1,9 @@
 import express from "express"
-import { createRating, getPublicStats } from "../controllers/publicController"
+import { getPublicStats, getPublicTestimonials } from "../controllers/publicController"
 
 const router = express.Router()
 
 router.get("/stats", getPublicStats)
-router.post("/ratings", createRating)
+router.get("/testimonials", getPublicTestimonials)
 
 export default router
