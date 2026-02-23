@@ -195,6 +195,22 @@ export const updateDeal = async (req: Request, res: Response) => {
     const userId = req.user?._id
     if (!userId) return res.status(401).json({ success: false, message: "Not authorized" })
 
+    if (Array.isArray(req.body?.deliverables)) {
+      req.body.deliverables = req.body.deliverables.map((deliverable: any) => {
+        if (deliverable?.status === "completed") {
+          return {
+            ...deliverable,
+            completedAt: deliverable.completedAt ? new Date(deliverable.completedAt) : new Date()
+          }
+        }
+
+        return {
+          ...deliverable,
+          completedAt: null
+        }
+      })
+    }
+
     const deal = await Deal.findOneAndUpdate(
       { _id: req.params.id, user: userId },
       { $set: req.body },

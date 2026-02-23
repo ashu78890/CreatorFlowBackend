@@ -9,7 +9,8 @@ const deliverableSchema = new mongoose.Schema(
       default: "pending"
     },
     dueDate: { type: Date, required: true },
-    platform: { type: String, default: "instagram" }
+    platform: { type: String, default: "instagram" },
+    completedAt: { type: Date, default: null }
   },
   { _id: false }
 )

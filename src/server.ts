@@ -12,6 +12,7 @@ import billingRoutes from "./routes/billingRoutes"
 import notificationRoutes from "./routes/notificationRoutes"
 import searchRoutes from "./routes/searchRoutes"
 import platformRoutes from "./routes/platformRoutes"
+import publicRoutes from "./routes/publicRoutes"
 import { stripeWebhook } from "./controllers/billingController"
 import { connectDB } from "./config/db"
 import { cleanupOldNotifications } from "./utils/notifications"
@@ -35,6 +36,7 @@ app.use("/api/billing", billingRoutes)
 app.use("/api/notifications", notificationRoutes)
 app.use("/api/search", searchRoutes)
 app.use("/api/platforms", platformRoutes)
+app.use("/api/public", publicRoutes)
 app.get("/", (req, res) => {
   res.send("CreatorFlow Backend Running")
 })
