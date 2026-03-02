@@ -14,6 +14,7 @@ const ensureDeadlineNotifications = async (userId: string, reminderDays: number)
 
   const upcomingDeals = await Deal.find({
     user: userId,
+    status: "active",
     "deliverables.status": "pending"
   }).limit(50)
 
@@ -102,6 +103,7 @@ export const getDashboardOverview = async (req: Request, res: Response) => {
 
     const upcomingDeals = await Deal.find({
       user: userId,
+      status: "active",
       "deliverables.status": "pending"
     }).limit(20)
 

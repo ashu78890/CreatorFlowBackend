@@ -28,6 +28,9 @@ const buildTrend = (current: number, previous: number) => {
   }
 }
 
+const sumPaymentReceived = (items: Array<{ received?: number }>) =>
+  items.reduce((sum, item) => sum + (item.received || 0), 0)
+
 export const getAnalytics = async (req: Request, res: Response) => {
   try {
     const userId = req.user?._id
@@ -107,12 +110,42 @@ export const getAnalytics = async (req: Request, res: Response) => {
       { $group: { _id: null, avg: { $avg: "$amount" } } }
     ])
 
-    const lastDeals = monthlyDeals[monthlyDeals.length - 1]?.deals || 0
-    const prevDeals = monthlyDeals[monthlyDeals.length - 2]?.deals || 0
-    const lastEarned = earningsData[earningsData.length - 1]?.earned || 0
-    const prevEarned = earningsData[earningsData.length - 2]?.earned || 0
+    const now = new Date()
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const previousMonthLastDay = new Date(now.getFullYear(), now.getMonth(), 0).getDate()
+    const clampedDay = Math.min(now.getDate(), previousMonthLastDay)
+    const previousMonthCutoff = new Date(
+      previousMonthStart.getFullYear(),
+      previousMonthStart.getMonth(),
+      clampedDay,
+      now.getHours(),
+      now.getMinutes(),
+      now.getSeconds(),
+      now.getMilliseconds()
+    )
 
-    const earningsTrend = buildTrend(lastEarned, prevEarned)
+    const currentMonthDeals = deals.filter((deal) => deal.createdAt >= currentMonthStart).length
+    const previousMonthDeals = deals.filter(
+      (deal) => deal.createdAt >= previousMonthStart && deal.createdAt <= previousMonthCutoff
+    ).length
+
+    const currentMonthPayments = payments.filter((payment) => payment.createdAt >= currentMonthStart)
+    const previousMonthPayments = payments.filter(
+      (payment) => payment.createdAt >= previousMonthStart && payment.createdAt <= previousMonthCutoff
+    )
+
+    const currentMonthEarned = sumPaymentReceived(currentMonthPayments)
+    const previousMonthEarned = sumPaymentReceived(previousMonthPayments)
+
+    const currentMonthAvgDealValue = currentMonthDeals > 0 ? currentMonthEarned / currentMonthDeals : 0
+    const previousMonthAvgDealValue = previousMonthDeals > 0 ? previousMonthEarned / previousMonthDeals : 0
+
+    const dealsTrend = buildTrend(currentMonthDeals, previousMonthDeals)
+    const earningsTrend = buildTrend(currentMonthEarned, previousMonthEarned)
+    const avgDealValueTrend = buildTrend(currentMonthAvgDealValue, previousMonthAvgDealValue)
+    const trendContext = "vs same time last month"
+
     const pendingAmount = paymentStatus
       .filter((status) => status.name !== "Paid")
       .reduce((sum, status) => sum + (status.value || 0), 0)
@@ -195,7 +228,7 @@ export const getAnalytics = async (req: Request, res: Response) => {
       const earningsDirection = earningsTrend.positive ? "up" : "down"
       items.push({
         id: nextId += 1,
-        text: `Earnings are ${earningsDirection} ${earningsTrend.change} vs last month.`,
+        text: `Earnings are ${earningsDirection} ${earningsTrend.change} ${trendContext}.`,
         type: earningsTrend.positive ? "success" : "warning"
       })
 
@@ -240,7 +273,11 @@ export const getAnalytics = async (req: Request, res: Response) => {
         overviewStats: {
           totalDeals,
           totalEarnings: totalEarnings[0]?.total || 0,
-          avgDealValue: Math.round(avgDealValueAgg[0]?.avg || 0)
+          avgDealValue: Math.round(avgDealValueAgg[0]?.avg || 0),
+          trendContext,
+          totalDealsTrend: dealsTrend,
+          totalEarningsTrend: earningsTrend,
+          avgDealValueTrend
         },
         monthlyDeals,
         earningsData,

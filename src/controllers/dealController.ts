@@ -10,6 +10,11 @@ const withDaysLeft = (date?: Date | string | null) => {
   return Math.ceil(diff / (1000 * 60 * 60 * 24))
 }
 
+const getDealDaysLeft = (deal: { status?: string; dueDate?: Date | string | null }) => {
+  if (deal.status !== "active") return null
+  return withDaysLeft(deal.dueDate)
+}
+
 const dayDiff = (date: Date) => {
   const target = new Date(date)
   target.setHours(0, 0, 0, 0)
@@ -25,6 +30,10 @@ export const getDealReminders = async (req: Request, res: Response) => {
 
     const deal = await Deal.findOne({ _id: req.params.id, user: userId })
     if (!deal) return res.status(404).json({ success: false, message: "Deal not found" })
+
+    if (deal.status !== "active") {
+      return res.json({ success: true, data: [] })
+    }
 
     const reminderDays = req.user?.reminders?.daysBefore ?? 2
     const reminders: Array<{
@@ -157,7 +166,7 @@ export const getDeals = async (req: Request, res: Response) => {
       const obj = deal.toObject()
       return {
         ...obj,
-        daysLeft: withDaysLeft(obj.dueDate)
+        daysLeft: getDealDaysLeft(obj)
       }
     })
 
@@ -181,7 +190,7 @@ export const getDealById = async (req: Request, res: Response) => {
       success: true,
       data: {
         ...deal.toObject(),
-        daysLeft: withDaysLeft(deal.dueDate),
+        daysLeft: getDealDaysLeft(deal),
         payments
       }
     })
