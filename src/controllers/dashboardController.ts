@@ -110,14 +110,18 @@ export const getDashboardOverview = async (req: Request, res: Response) => {
     const upcomingDeadlines = upcomingDeals.flatMap((deal) =>
       (deal.deliverables || [])
         .filter((d) => d.status === "pending")
-        .map((d) => ({
-          id: `${deal._id}-${d.type}-${d.dueDate?.toISOString()}`,
-          brand: deal.brandName,
-          deliverable: d.type,
-          dueDate: d.dueDate,
-          daysLeft: daysLeft(d.dueDate),
-          platform: d.platform || deal.platform
-        }))
+        .map((d) => {
+          const remaining = daysLeft(d.dueDate)
+          return {
+            id: `${deal._id}-${d.type}-${d.dueDate?.toISOString()}`,
+            brand: deal.brandName,
+            deliverable: d.type,
+            dueDate: d.dueDate,
+            daysLeft: remaining,
+            platform: d.platform || deal.platform
+          }
+        })
+        .filter((d) => d.daysLeft != null && d.daysLeft >= 0)
     )
 
     const earningsTotal = totalEarnings[0]?.total || 0

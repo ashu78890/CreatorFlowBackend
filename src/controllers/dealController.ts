@@ -3,16 +3,28 @@ import Deal from "../models/Deal"
 import Payment from "../models/Payment"
 import { createNotification } from "../utils/notifications"
 
-const withDaysLeft = (date?: Date | string | null) => {
+const signedDaysLeft = (date?: Date | string | null) => {
   if (!date) return null
   const target = new Date(date)
   const diff = target.getTime() - new Date().getTime()
   return Math.ceil(diff / (1000 * 60 * 60 * 24))
 }
 
-const getDealDaysLeft = (deal: { status?: string; dueDate?: Date | string | null }) => {
-  if (deal.status !== "active") return null
-  return withDaysLeft(deal.dueDate)
+const getDealDeadlineMeta = (deal: { status?: string; dueDate?: Date | string | null }) => {
+  if (deal.status !== "active") {
+    return { daysLeft: null, isOverdue: false, overdueDays: 0 }
+  }
+
+  const diff = signedDaysLeft(deal.dueDate)
+  if (diff == null) {
+    return { daysLeft: null, isOverdue: false, overdueDays: 0 }
+  }
+
+  return {
+    daysLeft: Math.max(diff, 0),
+    isOverdue: diff < 0,
+    overdueDays: diff < 0 ? Math.abs(diff) : 0
+  }
 }
 
 const dayDiff = (date: Date) => {
@@ -164,9 +176,10 @@ export const getDeals = async (req: Request, res: Response) => {
 
     const mapped = deals.map((deal) => {
       const obj = deal.toObject()
+      const deadlineMeta = getDealDeadlineMeta(obj)
       return {
         ...obj,
-        daysLeft: getDealDaysLeft(obj)
+        ...deadlineMeta
       }
     })
 
@@ -186,11 +199,12 @@ export const getDealById = async (req: Request, res: Response) => {
 
     const payments = await Payment.find({ deal: deal._id, user: userId }).sort({ createdAt: -1 })
 
+    const deadlineMeta = getDealDeadlineMeta(deal)
     return res.json({
       success: true,
       data: {
         ...deal.toObject(),
-        daysLeft: getDealDaysLeft(deal),
+        ...deadlineMeta,
         payments
       }
     })
