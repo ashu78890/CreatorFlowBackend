@@ -8,12 +8,13 @@ import {
   deletePayment
 } from "../controllers/paymentController"
 import { protect } from "../middleware/authMiddleware"
+import { requirePro } from "../middleware/requirePro"
 
 const router = express.Router()
 
 router.use(protect)
 
-router.get("/export", exportPayments)
+router.get("/export", requirePro, exportPayments)
 router.route("/").get(getPayments).post(createPayment)
 router.route("/:id").get(getPaymentById).put(updatePayment).delete(deletePayment)
 
