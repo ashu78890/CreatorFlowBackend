@@ -87,6 +87,11 @@ const csvEscape = (value: unknown) => {
   return str
 }
 
+const formatDate = (date?: Date | string | null) => {
+  if (!date) return ""
+  return new Date(date).toISOString().slice(0, 10)
+}
+
 export const exportPayments = async (req: Request, res: Response) => {
   try {
     const userId = req.user?._id
@@ -98,41 +103,101 @@ export const exportPayments = async (req: Request, res: Response) => {
     if (status && status !== "all") query.status = status
 
     const payments = await Payment.find(query)
-      .populate("deal", "brandName dealName")
+      .populate(
+        "deal",
+        "brandName brandHandle dealName platform status paymentStatus amount amountReceived dueDate createdDate"
+      )
       .sort({ createdAt: -1 })
 
     const rows = payments.map((payment) => {
-      const deal = payment.deal as { brandName?: string; dealName?: string } | string
+      const deal = payment.deal as unknown as
+        | {
+        _id?: { toString: () => string } | string
+            brandName?: string
+            brandHandle?: string
+            dealName?: string
+            platform?: string
+            status?: string
+            paymentStatus?: string
+            amount?: number
+            amountReceived?: number
+            dueDate?: Date
+            createdDate?: Date
+          }
+        | string
+
+      const paymentAmount = Number(payment.amount || 0)
+      const paymentReceived = Number(payment.received || 0)
+      const paymentOutstanding = Math.max(paymentAmount - paymentReceived, 0)
+
+      const dealId = typeof deal === "string" ? deal : deal?._id?.toString?.() || ""
       const brandName = typeof deal === "string" ? "" : deal?.brandName || ""
+      const brandHandle = typeof deal === "string" ? "" : deal?.brandHandle || ""
       const dealName = typeof deal === "string" ? "" : deal?.dealName || ""
-      const dueDate = payment.dueDate ? payment.dueDate.toISOString().slice(0, 10) : ""
-      const paidAt = payment.paidAt ? payment.paidAt.toISOString().slice(0, 10) : ""
-      const createdAt = payment.createdAt ? payment.createdAt.toISOString().slice(0, 10) : ""
+      const platform = typeof deal === "string" ? "" : deal?.platform || ""
+      const dealStatus = typeof deal === "string" ? "" : deal?.status || ""
+      const dealPaymentStatus = typeof deal === "string" ? "" : deal?.paymentStatus || ""
+      const dealAmount = typeof deal === "string" ? 0 : Number(deal?.amount || 0)
+      const dealAmountReceived = typeof deal === "string" ? 0 : Number(deal?.amountReceived || 0)
+      const dealAmountOutstanding = Math.max(dealAmount - dealAmountReceived, 0)
+      const paymentCollectionRate = paymentAmount > 0
+        ? `${Math.round((paymentReceived / paymentAmount) * 100)}%`
+        : "0%"
 
       return [
+        payment._id,
+        dealId,
         brandName,
+        brandHandle,
         dealName,
-        payment.amount,
-        payment.received,
+        platform,
+        dealStatus,
+        dealPaymentStatus,
+        dealAmount,
+        dealAmountReceived,
+        dealAmountOutstanding,
+        paymentAmount,
+        paymentReceived,
+        paymentOutstanding,
+        paymentCollectionRate,
         payment.status,
-        dueDate,
-        paidAt,
-        createdAt
+        formatDate(payment.dueDate),
+        formatDate(payment.paidAt),
+        formatDate(payment.createdAt),
+        formatDate(payment.updatedAt),
+        formatDate(typeof deal === "string" ? null : deal?.dueDate),
+        formatDate(typeof deal === "string" ? null : deal?.createdDate),
+        payment.notes || ""
       ]
     })
 
     const header = [
+      "Payment ID",
+      "Deal ID",
       "Brand",
+      "Brand Handle",
       "Deal",
-      "Amount",
-      "Received",
-      "Status",
-      "Due Date",
-      "Paid At",
-      "Created At"
+      "Platform",
+      "Deal Status",
+      "Deal Payment Status",
+      "Deal Amount",
+      "Deal Amount Received",
+      "Deal Amount Outstanding",
+      "Payment Amount",
+      "Payment Received",
+      "Payment Outstanding",
+      "Payment Collection Rate",
+      "Payment Status",
+      "Payment Due Date",
+      "Payment Paid At",
+      "Payment Created At",
+      "Payment Updated At",
+      "Deal Due Date",
+      "Deal Created Date",
+      "Payment Notes"
     ]
 
-    const csv = [header, ...rows]
+    const csv = "\uFEFF" + [header, ...rows]
       .map((row) => row.map(csvEscape).join(","))
       .join("\n")
 
